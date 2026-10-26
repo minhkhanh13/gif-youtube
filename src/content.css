@@ -432,3 +432,21 @@
   margin: 0 !important;
   padding: 0 !important;
 }
+
+.memetube-attached-badge {
+  display: inline-block;
+  background: rgba(0, 200, 80, 0.15);
+  border: 1px solid rgba(0, 200, 80, 0.4);
+  color: #00e676;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+  animation: memetube-pop 0.2s ease-out;
+}
+@keyframes memetube-pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
