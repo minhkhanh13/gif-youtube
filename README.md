@@ -17,3 +17,5 @@
 3. Enable Developer mode in the top-right corner.
 4. Click Load unpacked and select the extracted folder.
 5. Open any YouTube video and click the Meme / GIF Studio button in the comment box!
+
+Video Demo: https://github.com/user-attachments/assets/d8d3568c-aae5-4024-bbbc-cec1c6775072
