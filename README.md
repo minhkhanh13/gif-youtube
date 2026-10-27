@@ -32,10 +32,9 @@
 ## Demo
 
 <!-- Kéo thả video hoặc ảnh GIF demo của bạn vào đây trên GitHub -->
-<p align="center">
-  <em>(https://github.com/user-attachments/assets/7f4807b3-c133-4d66-bf13-e6641c2b8eee)</em>
-</p>
-
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/7f4807b3-c133-4d66-bf13-e6641c2b8eee" controls width="100%"></video>
+</div>
 ---
 
 ## Why MemeTube Pro?
