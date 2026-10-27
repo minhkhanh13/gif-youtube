@@ -124,3 +124,19 @@ async function handleGifQuery(rawQuery) {
     return formatGifs(searches[0]?.results || []);
   }
 }
+
+
+// Fallback loader if page CSP blocks direct img src
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg && msg.type === 'fetch-gif-blob' && msg.url) {
+    fetch(msg.url, { credentials: 'omit' })
+      .then(r => r.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => sendResponse({ ok: true, dataUrl: reader.result });
+        reader.readAsDataURL(blob);
+      })
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
+});

@@ -659,9 +659,8 @@
     }
   }
 
-    // ==================== CÔNG NGHỆ TÀNG HÌNH ZERO-WIDTH STEALTH ====================
-  // Mã hóa mã GIF thành chuỗi ký tự tàng hình tuyệt đối (Zero-Width Characters)
-  // KHÔNG CHÈN BẤT KỲ CÂU CHỮ GIẢ NÀO VÀO Ô NHẬP BÌNH LUẬN!
+  
+  // ==================== 6.5. LOSSLESS ZERO-WIDTH STEALTH & LIVE PREVIEW ====================
   function encodeToZeroWidth(text) {
     let binary = '';
     for (let i = 0; i < text.length; i++) {
@@ -681,68 +680,228 @@
     const binary = match[1].replace(/\u200B/g, '0').replace(/\u200C/g, '1');
     let decoded = '';
     for (let i = 0; i < binary.length; i += 8) {
-      decoded += String.fromCharCode(parseInt(binary.slice(i, i + 8), 2));
+      const byte = binary.slice(i, i + 8);
+      if (byte.length === 8) {
+        decoded += String.fromCharCode(parseInt(byte, 2));
+      }
     }
     return decoded;
   }
 
-  // Chèn GIF vào ô nhập:
-  // CHỈ chèn mã tàng hình, TUYỆT ĐỐI KHÔNG chèn câu giả ("That ending was unexpected!" hay câu khen nhảm nhí)
-  // Người dùng gõ bình luận gì thì bình luận đó giữ nguyên 100%!
-  function insertGifStealth(gifUrl) {
-    if (!activeEditor || !activeEditor.isConnected) return;
-    const shortCode = extractShortTenorCode(gifUrl);
-    const hiddenCode = encodeToZeroWidth(shortCode);
+  // Nén URL Tenor 100% không mất dữ liệu (Lossless)
+  function compactTenorUrl(url) {
+    const m = url.match(/^https?:\/\/([^/]+\.tenor\.com)\/(.+?)\.gif$/i);
+    if (m) {
+      const host = m[1].toLowerCase();
+      const path = m[2];
+      if (host === 'media.tenor.com') return `0|${path}`;
+      if (host === 'media1.tenor.com') return `1|${path}`;
+      return `${host}|${path}`;
+    }
+    return url;
+  }
 
-    // Chèn mã tàng hình vào ô nhập
-    insertTextToEditor(hiddenCode);
+  // Giải nén chính xác 100% về URL gốc của Tenor CDN (Không bao giờ bị hộp đen 404!)
+  function resolveGifUrl(rawCode) {
+    const clean = rawCode.replace(/<[^>]*>/g, '').replace(/^(AUT|USR)\|/, '').trim();
+    if (clean.startsWith('0|')) return `https://media.tenor.com/${clean.slice(2)}.gif`;
+    if (clean.startsWith('1|')) return `https://media1.tenor.com/${clean.slice(2)}.gif`;
+    if (clean.includes('|') && !/^https?:\/\//i.test(clean)) {
+      const [host, path] = clean.split('|');
+      return `https://${host}/${path}.gif`;
+    }
+    if (/^https?:\/\//i.test(clean)) return clean;
+    if (clean.includes('/')) {
+      if (clean.startsWith('m/')) return `https://media1.tenor.com/${clean}.gif`;
+      return `https://media.tenor.com/${clean}.gif`;
+    }
+    return `https://media1.tenor.com/m/${clean}/tenor.gif`;
+  }
 
-    // Hiển thị một badge nhỏ bên cạnh nút Meme để người dùng biết GIF đã được đính kèm thành công
-    const box = activeEditor.closest('ytd-commentbox');
-    if (box) {
-      let badge = box.querySelector('.memetube-attached-badge');
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.className = 'memetube-attached-badge';
-        const btn = box.querySelector('.memetube-btn');
-        if (btn) btn.after(badge);
+  // ==================== CƠ CHẾ KHÓA GIF BẤT TỬ (PERSISTENT ATTACHMENT GUARD) ====================
+  // Đảm bảo GIF được gắn vào bình luận, ngay cả khi người dùng xóa sạch chữ, sửa chữ hay backspace!
+  function ensureGifInEditor(editor, gifUrl) {
+    if (!editor || !gifUrl) return;
+    const compactCode = compactTenorUrl(gifUrl);
+    const hiddenCode = encodeToZeroWidth(compactCode);
+    const currentText = editor.textContent || '';
+
+    if (!currentText.includes(hiddenCode)) {
+      // 1. Dọn sạch ký tự tàng hình đứt đoạn cũ nếu có
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (/[\u200B-\u200D]/.test(n.nodeValue)) {
+          n.nodeValue = n.nodeValue.replace(/\u200D[\u200B\u200C]+\u200D|[\u200B-\u200D]/g, '');
+        }
       }
-      badge.textContent = '✅ Attached GIF';
-      badge.style.display = 'inline-block';
+
+      // 2. Chèn lại mã tàng hình vào cuối nội dung editor
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) {}
+
+      let ok = false;
+      try {
+        ok = document.execCommand('insertText', false, hiddenCode);
+      } catch (e) {}
+
+      if (!ok) {
+        editor.textContent += hiddenCode;
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: hiddenCode }));
+      }
     }
   }
 
-  function getGifRegex() {
-    return /\[(?:🎬\s*)?gif:\s*([^\s\]]+)\]/gi;
+  // Khung xem trước GIF động (Live GIF Preview Card)
+  function showComposerPreview(box, gifUrl) {
+    if (!box) return;
+    box.dataset.memetubeAttachedGif = gifUrl;
+
+    let preview = box.querySelector('.memetube-composer-preview');
+    if (!preview) {
+      preview = document.createElement('div');
+      preview.className = 'memetube-composer-preview';
+      const footer = box.querySelector('#footer');
+      if (footer) {
+        footer.before(preview);
+      } else {
+        box.appendChild(preview);
+      }
+    }
+
+    const labelText = currentLang === 'vi' ? '🔒 Đã khóa GIF (An toàn 100%)' : '🔒 GIF Attached (Safe Mode)';
+    const subText = currentLang === 'vi' ? 'Thoải mái gõ, sửa, xóa chữ tùy thích mà không sợ mất GIF!' : 'Feel free to type, edit, or backspace — your GIF is locked safely!';
+    const removeText = currentLang === 'vi' ? '✕ Xóa GIF' : '✕ Remove';
+
+    preview.innerHTML = `
+      <img src="${gifUrl}" alt="GIF Preview" referrerpolicy="no-referrer" />
+      <div class="memetube-composer-info">
+        <span class="memetube-composer-label">${labelText}</span>
+        <span class="memetube-composer-sub">${subText}</span>
+      </div>
+      <button type="button" class="memetube-composer-remove" title="Hủy đính kèm GIF này">${removeText}</button>
+    `;
+
+    // Chỉ khi bấm trực tiếp nút "✕ Xóa GIF" thì mới hủy GIF
+    preview.querySelector('.memetube-composer-remove').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      delete box.dataset.memetubeAttachedGif;
+      if (activeEditor) {
+        const walker = document.createTreeWalker(activeEditor, NodeFilter.SHOW_TEXT);
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (/[\u200B-\u200D]/.test(n.nodeValue)) {
+            n.nodeValue = n.nodeValue.replace(/\u200D[\u200B\u200C]+\u200D|[\u200B-\u200D]/g, '');
+          }
+        }
+      }
+      preview.remove();
+    });
+
+    const cancelBtn = box.querySelector('#cancel-button');
+    if (cancelBtn && !cancelBtn.dataset.memetubeBound) {
+      cancelBtn.dataset.memetubeBound = '1';
+      cancelBtn.addEventListener('click', () => {
+        delete box.dataset.memetubeAttachedGif;
+        if (preview && preview.isConnected) preview.remove();
+      });
+    }
   }
 
-  function resolveGifUrl(rawCode) {
-    const clean = rawCode.replace(/<[^>]*>/g, '').replace(/^(AUT|USR)\|/, '').trim();
-    if (/^https?:\/\//i.test(clean)) return clean;
-    return `https://media.tenor.com/${clean}.gif`;
+  function insertGifStealth(gifUrl) {
+    if (!activeEditor || !activeEditor.isConnected) return;
+    const box = activeEditor.closest('ytd-commentbox');
+    if (!box) return;
+
+    // 1. Lưu URL GIF vào bộ nhớ trạng thái của khung bình luận (bảo vệ tuyệt đối)
+    box.dataset.memetubeAttachedGif = gifUrl;
+
+    // 2. Hiện thẻ xem trước và hướng dẫn
+    showComposerPreview(box, gifUrl);
+
+    // 3. Đảm bảo mã tàng hình nằm trong editor để nút Submit sáng lên
+    ensureGifInEditor(activeEditor, gifUrl);
+
+    // 4. Kích hoạt nút bình luận YouTube
+    const submitBtn = box.querySelector('#submit-button button');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.removeAttribute('disabled');
+      submitBtn.setAttribute('aria-disabled', 'false');
+      submitBtn.classList.remove('yt-spec-button-shape-next--disabled', 'ytSpecButtonShapeNextDisabled');
+    }
   }
 
-  // ==================== 7. HIỂN THỊ INLINE GIF & GIỮ NGUYÊN COMMENT CỦA USER ====================
+  // Tự động kiểm tra và khóa bảo vệ khi người dùng bấm gửi
+  function bindBoxInterceptors(box, editor) {
+    if (box.dataset.memetubeInterceptorBound) return;
+    box.dataset.memetubeInterceptorBound = '1';
+
+    // Bắt sự kiện Click nút Submit ở tầng Capture (trước khi YouTube xử lý)
+    box.addEventListener('click', (e) => {
+      const submitBtn = e.target.closest('#submit-button');
+      if (submitBtn && box.dataset.memetubeAttachedGif) {
+        ensureGifInEditor(editor, box.dataset.memetubeAttachedGif);
+        setTimeout(() => {
+          delete box.dataset.memetubeAttachedGif;
+          const p = box.querySelector('.memetube-composer-preview');
+          if (p) p.remove();
+        }, 600);
+      }
+    }, true);
+
+    // Bắt phím tắt Ctrl+Enter
+    editor.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (box.dataset.memetubeAttachedGif) {
+          ensureGifInEditor(editor, box.dataset.memetubeAttachedGif);
+          setTimeout(() => {
+            delete box.dataset.memetubeAttachedGif;
+            const p = box.querySelector('.memetube-composer-preview');
+            if (p) p.remove();
+          }, 600);
+        }
+      }
+    }, true);
+
+    // Giữ nút Bình luận luôn sáng khi đang có GIF đính kèm
+    editor.addEventListener('input', () => {
+      if (box.dataset.memetubeAttachedGif) {
+        const submitBtn = box.querySelector('#submit-button button');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.removeAttribute('disabled');
+          submitBtn.setAttribute('aria-disabled', 'false');
+          submitBtn.classList.remove('yt-spec-button-shape-next--disabled', 'ytSpecButtonShapeNextDisabled');
+        }
+      }
+    });
+  }
+
+  // ==================== 7. HIỂN THỊ INLINE GIF ĐỘNG (KHÔNG BAO GIỜ LỖI HỘP ĐEN) ====================
   function renderInlineGifs() {
-    const commentNodes = document.querySelectorAll('#content-text:not([data-memetube-done="true"])');
+    const commentNodes = document.querySelectorAll('#content-text');
     commentNodes.forEach(el => {
       const textContent = el.textContent || '';
       
       const hasZeroWidth = /\u200D[\u200B\u200C]+\u200D/.test(textContent);
       const hasOldTag = /\[(?:🎬\s*)?gif:/i.test(textContent);
+      const hasTenorLink = el.querySelector('a[href*="tenor.com"]');
 
-      if (!hasZeroWidth && !hasOldTag) return;
+      if (!hasZeroWidth && !hasOldTag && !hasTenorLink) return;
 
       let gifUrls = [];
 
-      // 1. Giải mã dạng tàng hình (Zero-Width)
+      // 1. Giải mã từ mã tàng hình (Zero-Width)
       if (hasZeroWidth) {
         const decoded = decodeFromZeroWidth(textContent);
-        if (decoded) {
-          gifUrls.push(resolveGifUrl(decoded));
-        }
+        if (decoded) gifUrls.push(resolveGifUrl(decoded));
 
-        // Xóa sạch chuỗi ký tự tàng hình khỏi nội dung text hiển thị
         const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
         const textNodes = [];
         for (let n = walker.nextNode(); n; n = walker.nextNode()) textNodes.push(n);
@@ -753,59 +912,88 @@
         });
       }
 
-      // 2. Giải mã dạng cũ [gif:...] nếu có
+      // 2. Bóc tách nếu có thẻ <a> Tenor
+      if (hasTenorLink) {
+        gifUrls.push(hasTenorLink.href);
+        hasTenorLink.remove();
+      }
+
+      // 3. Bóc tách nếu có thẻ [gif:...] cũ
       if (hasOldTag) {
-        const matches = [...textContent.matchAll(getGifRegex())];
+        const matches = [...textContent.matchAll(/\[(?:🎬\s*)?gif:\s*([^\s\]]+)\]/gi)];
         matches.forEach(m => gifUrls.push(resolveGifUrl(m[1])));
 
         const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
         const textNodes = [];
         for (let n = walker.nextNode(); n; n = walker.nextNode()) textNodes.push(n);
         textNodes.forEach(node => {
-          if (/\[(?:🎬\s*)?gif:/i.test(node.nodeValue)) {
-            node.nodeValue = node.nodeValue.replace(/\[(?:🎬\s*)?gif:\s*([^\s\]]+)\]/gi, '').trim();
-          }
+          node.nodeValue = node.nodeValue
+            .replace(/\[(?:🎬\s*)?gif:[^\]]*\]/gi, '')
+            .replace(/\[(?:🎬\s*)?gif:?/gi, '')
+            .replace(/\]/g, '')
+            .trim();
         });
+
         el.querySelectorAll('span, a').forEach(child => {
-          if (/\[(?:🎬\s*)?gif:/i.test(child.textContent)) {
-            child.textContent = child.textContent.replace(/\[(?:🎬\s*)?gif:\s*([^\s\]]+)\]/gi, '').trim();
-          }
+          if (/tenor\.com/i.test(child.href || '')) child.remove();
+          child.textContent = child.textContent
+            .replace(/\[(?:🎬\s*)?gif:[^\]]*\]/gi, '')
+            .replace(/\[(?:🎬\s*)?gif:?/gi, '')
+            .replace(/\]/g, '')
+            .trim();
         });
       }
 
       if (gifUrls.length === 0) return;
 
-      el.setAttribute('data-memetube-done', 'true');
-
-      // 3. KIỂM TRA BÌNH LUẬN CỦA USER:
-      // Dọn sạch khoảng trắng dư thừa
+      // 4. Giữ nguyên 100% bình luận của người dùng
       const remainingText = el.textContent.trim();
-
       if (!remainingText) {
-        // Nếu user KHÔNG gõ chữ gì (chỉ gửi mỗi GIF): ẩn dòng trống để không bị khoảng trắng thừa
         el.style.setProperty('display', 'none', 'important');
-        const expander = el.closest('#expander, ytd-expander');
-        if (expander) expander.style.setProperty('display', 'none', 'important');
       } else {
-        // NẾU USER CÓ GÕ COMMENT (ví dụ: "hay vcl"): GIỮ NGUYÊN 100%, KHÔNG ĐƯỢC ẨN!
         el.style.removeProperty('display');
-        const expander = el.closest('#expander, ytd-expander');
-        if (expander) expander.style.removeProperty('display');
       }
 
-      // 4. Render khung ảnh GIF động bo góc mượt mà bên dưới bình luận
-      const parent = el.parentElement || el;
+      // 5. Render GIF động với cơ chế tự động khôi phục ảnh (Fallback Blob Loader)
+      const insertTarget = el.closest('#expander, ytd-expander') || el;
+      const containerParent = insertTarget.parentElement || el.parentElement || el;
+
       gifUrls.forEach(url => {
-        if (parent.querySelector(`img[data-memetube-src="${url}"]`)) return;
+        if (containerParent.querySelector(`img[data-memetube-src="${url}"]`)) return;
 
         const box = document.createElement('div');
         box.className = 'memetube-rendered-box';
-        box.innerHTML = `
-          <img src="${url}" data-memetube-src="${url}" class="memetube-rendered-gif" referrerpolicy="no-referrer" loading="lazy" />
-          <span class="memetube-badge">GIF</span>
-        `;
-        const insertAfterTarget = el.closest('#expander, ytd-expander') || el;
-        insertAfterTarget.after(box);
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.setAttribute('data-memetube-src', url);
+        img.className = 'memetube-rendered-gif';
+        img.referrerPolicy = 'no-referrer';
+        img.loading = 'lazy';
+
+        // Nếu link bị chặn hoặc lỗi, tự động tải qua Service Worker hoặc ẩn khung đen
+        img.addEventListener('error', () => {
+          if (!img.dataset.retried) {
+            img.dataset.retried = '1';
+            chrome.runtime.sendMessage({ type: 'fetch-gif-blob', url }, (res) => {
+              if (res && res.ok && res.dataUrl) {
+                img.src = res.dataUrl;
+              } else {
+                box.remove();
+              }
+            });
+          } else {
+            box.remove();
+          }
+        });
+
+        const badge = document.createElement('span');
+        badge.className = 'memetube-badge';
+        badge.textContent = 'GIF';
+
+        box.appendChild(img);
+        box.appendChild(badge);
+        insertTarget.after(box);
       });
     });
   }
@@ -815,7 +1003,12 @@
     document.querySelectorAll('ytd-commentbox').forEach(box => {
       const footer = box.querySelector('#footer');
       const editor = box.querySelector('#contenteditable-root');
-      if (!footer || !editor || footer.querySelector('.memetube-btn')) return;
+      if (!footer || !editor) return;
+
+      // Kích hoạt bộ bảo vệ GIF chống xóa (Persistent Attachment Guard)
+      bindBoxInterceptors(box, editor);
+
+      if (footer.querySelector('.memetube-btn')) return;
 
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -832,6 +1025,7 @@
       else footer.prepend(btn);
     });
   }
+
 
   const observer = new MutationObserver(() => {
     injectButtons();

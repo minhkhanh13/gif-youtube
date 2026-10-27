@@ -450,3 +450,79 @@
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+
+/* Live GIF Preview inside YouTube Comment Box */
+.memetube-composer-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 6px 0;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 51, 102, 0.45);
+  border-radius: 12px;
+  width: fit-content;
+  max-width: 100%;
+  animation: memetube-pop 0.2s ease-out;
+}
+.memetube-composer-preview img {
+  height: 72px;
+  max-width: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #111;
+  display: block;
+}
+.memetube-composer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.memetube-composer-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #00e676;
+}
+.memetube-composer-sub {
+  font-size: 11px;
+  color: #aaa;
+}
+.memetube-composer-remove {
+  background: rgba(255, 60, 60, 0.18);
+  border: 1px solid rgba(255, 60, 60, 0.4);
+  color: #ff6666;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.memetube-composer-remove:hover {
+  background: #ff3355;
+  color: #fff;
+}
+
+/* Fix black box: make rendered GIF box adaptive and clean */
+.memetube-rendered-box {
+  margin-top: 6px;
+  margin-bottom: 4px;
+  display: inline-block;
+  max-width: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  background: transparent !important;
+  position: relative;
+  vertical-align: top;
+}
+.memetube-rendered-gif {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: 12px;
+}
