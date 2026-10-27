@@ -62,7 +62,7 @@ Since mid-October 2026, YouTube started rejecting native desktop GIF comments wi
 
 ### Chrome, Brave, Edge, Cốc Cốc
 
-1. Download the latest **`memetube-pro-v10.1-safe.zip`** from [Releases](https://github.com/minhkhanh13/gif-youtube-AI/releases/latest).
+1. Download the latest **`memetube.zip`** from [Releases](https://github.com/minhkhanh13/gif-youtube-AI/releases/latest).
 2. Extract the ZIP archive to a folder on your computer.
 3. Open your browser and navigate to `chrome://extensions` (or `brave://extensions`).
 4. Enable **Developer mode** using the toggle in the top-right corner.
