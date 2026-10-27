@@ -1,0 +1,13 @@
+# OS Junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archives & Builds
+*.zip
+*.crx
+*.tar.gz
+
+# Editor directories
+.vscode/
+.idea/
