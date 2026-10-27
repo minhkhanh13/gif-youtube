@@ -33,7 +33,7 @@
 
 <!-- Kéo thả video hoặc ảnh GIF demo của bạn vào đây trên GitHub -->
 <p align="center">
-  <em>Attach your demo GIF / video preview here</em>
+  <em>(https://github.com/user-attachments/assets/7f4807b3-c133-4d66-bf13-e6641c2b8eee)</em>
 </p>
 
 ---
@@ -120,7 +120,4 @@ If you find MemeTube Pro helpful, please consider giving it a ⭐ on GitHub! Pul
 ## License
 
 Distributed under the [MIT License](LICENSE).
-
-https://github.com/user-attachments/assets/7f4807b3-c133-4d66-bf13-e6641c2b8eee
-
 
