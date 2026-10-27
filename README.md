@@ -106,7 +106,7 @@ MemeTube Pro operates entirely in the browser without third-party proxy servers:
 
 ## Privacy
 
-- **No Data Collection:** MemeTube Pro does not collect personal data, track browsing activity, or use analytics.
+- **No Data Collection:** MemeTube Pro does not collect personal data, track browsing activity, or use analytics
 - **No Third-Party Intermediaries:** Search queries go directly to Tenor's official API, and GIF assets are fetched straight from Tenor CDN servers.
 - **Credentials Protected:** The extension never inspects, accesses, or modifies your YouTube login credentials or cookies.
 
