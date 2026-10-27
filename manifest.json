@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "MemeTube Pro - GIF, ASCII Meme & Kaomoji Studio",
-  "version": "8.0.0",
-  "description": "Post animated Tenor GIFs (auto-rendered), viral ASCII/Braille art memes, and Japanese Kaomoji on YouTube comments with zero-width stealth technology.",
+  "name": "MemeTube Pro - YouTube Comment GIF, ASCII & Kaomoji Studio",
+  "version": "10.1.0",
+  "description": "Post animated Tenor GIFs with persistent attachment protection, live preview, viral ASCII/Braille art memes, and Kaomoji directly in YouTube & Shorts comments.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
